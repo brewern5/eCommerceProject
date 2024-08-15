@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>eCommerce Site</title>
+    <link rel="stylesheet" href="ProjectCss.css"> 
+</head>
+<body>
+    <div id="Wrapper">
+        <header>
+            <h1>eCommerce</h1>
+        </header>
+        <nav>
+            <span id="loadingBar">Loading...</span>
+        </nav>
+        <table>
+            <thead>
+                <tr>
+                    <th colspan="2" id="item">Item</th>
+                    <th colspan="2" id="shortDes">Description</th> <!-- Short Description -->
+                    <th id="price">Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="5" id="preShop">Check one of the categories to start shopping</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <td colspan="5"></td>
+            </tfoot>
+        </table>
+
+        <!-- Item View -->
+        <aside id="itemView">
+            <div id="itemViewWrapper">
+                <h2 id="itemViewName">Item Name</h2>
+                <button id="closeItem" onclick="showHide(false);">X</button>
+
+                <div id="imgWrapper">
+                    <img src="https://placehold.jp/3d4070/ffffff/150x150.png?text=Img%201" alt="img1" id="img1">
+                    <section id="smallImg">
+                        <img src="https://placehold.jp/3d4070/ffffff/75x75.png?text=Img%202" alt="img2" id="img2">
+                        <img src="https://placehold.jp/3d4070/ffffff/75x75.png?text=Img%203" alt="img3" id="img3">
+                        <img src="https://placehold.jp/3d4070/ffffff/75x75.png?text=Img%204" alt="img4" id="img4">
+                    </section>
+                </div>
+
+                <h3 id="longDes">Description Here</h3>
+                <h4 id="itemViewPrice">Price Here</h4>
+
+                <form>
+                    <select id="size" name ="Size" value="Size"></select>
+                    <select id="color" name="Color" value="Color"></select>
+                    <select id="qty" name ="qty" value="Qty"></select>
+                </form>
+                <button id="buyButton" onclick="">Buy</button>
+            </div>
+        </aside>
+        <!-- End Item View -->
+    </div>
+    <script>
+
+        // URL to the API
+        const api_url="https://6245f389e3450d61b0f926c1.mockapi.io/api/v1/";
+
+        //this is the item view big img
+        let bigImg = document.getElementById(`img1`);
+    
+        async function getApiData(url) {
+            // function for handling connections to the API
+            try {
+                let connection = await fetch(url);
+                return await connection.json();
+            } catch (error) {
+                console.log(error); 
+            }
+        }
+    
+        //start processCategories
+        async function processCategories() {
+        /*
+        Page Loaded
+            - HTML/CSS displays
+                - nav has green "Loading" message
+                - table headers are shown
+                - table content is "choose a filter category"
+                - nav is updated to show categories, replacing the green loading message
+        */
+            let results = await getApiData(api_url+"categories");
+            //console.log(results);
+            let html = '<span>Filter: </span>';
+    
+            results.forEach(category => {
+                let htmlSegment = `<label>
+                    <input type="radio" name="category" onclick="processItems(${category.id});">
+                     ${category.name}</label>`;
+                html += htmlSegment;
+            });
+    
+            htmlBuilder('nav', html);
+        }
+        //end processCategories
+
+        //start processItems
+        async function processItems(categoryID) {
+
+            let results = await getApiData(api_url + "categories/" + categoryID + "/items");
+            //console.log(results);
+
+            let totalCount = results.totalCount;
+            let itemPerPage = 10;
+            let pages;
+
+            //an array that stores a page as an object
+            let pageObjArray = [];
+
+                //checks if num of items per page is a float, will round up to the next whole number
+            if ((totalCount > itemPerPage) && ((totalCount / itemPerPage) !== itemPerPage)) {
+                pages = parseInt((totalCount / itemPerPage + 1) | 0);
+
+                let remainingItems = totalCount;
+                let itemsCurrentPage = 10;
+
+                for (let i = 0; i < pages; i++) {
+
+                    if ((remainingItems / itemPerPage) < 1) {
+                        itemsCurrentPage = parseInt(String(remainingItems / itemPerPage).slice(-1));
+                    }
+
+                    pageObjArray.push(pageObjConstructor(itemsCurrentPage, (i+1), results));
+                    remainingItems -= itemsCurrentPage;
+                }
+
+            }   //checks if num of items per page will be divided equally with no remainders
+            else if ((totalCount > itemPerPage) && ((totalCount / itemPerPage) === itemPerPage)) {
+                pages = totalCount / itemPerPage;
+
+                for (let i = 0; i < pages; i++) {
+
+                    pageObjArray[i] = pageObjConstructor(itemsCurrentPage, (i+1), results);
+                    remainingItems -= itemsCurrentPage;
+                }
+            }
+            else {
+
+                pages = 1;
+                pageObjArray[0] = pageObjConstructor(10, 1, results);
+            }
+
+            buildPage(pageObjArray, pages, itemPerPage, categoryID, 0);
+        }
+        //end processItems
+
+        function buildPage(pageObjArray, pages, itemsPerPage, categoryID, pageClicked) {
+
+            let html = "";
+
+            let viewPage = pageObjArray[pageClicked];
+
+            viewPage.itemInfo.forEach( item => {
+
+                let htmlSegment =
+                `<tr onclick="showItem(${categoryID}, ${item.itemId});">
+                    <td class="imgContainer" colspan="0"><img class="itemImg" src="${item.itemMainImg}"></td>
+                    <td> ${item.itemName}</td>
+                    <td colspan="2">${item.itemBrief}</td>
+                    <td>${item.itemPrice}</td>
+                </tr>`;
+
+                html += htmlSegment;
+            });
+   
+
+            htmlBuilder('tbody', html);
+
+            html = 
+                `<tr>
+                    <td id="pageInfo">Pages:</td>
+                    <td id="pageNum" colspan="4">`;
+
+            console.log(pageObjArray);
+
+            for (let i = 1; i <= pages; i++) {
+
+                let htmlSegment = 
+                    `<button id="page${i}" onclick="buildPage(${{pageObjArray}}, ${pages}, ${itemsPerPage}, ${categoryID}, ${i})">${i}</button>`;
+
+                html += htmlSegment;
+            }
+
+            html += `</td>`;
+
+            htmlBuilder('tfoot', html);
+        }
+
+
+        function pageObjConstructor(itemsCurrentPage, pageNum, results) {
+
+            const itemInfoArr = []
+
+            let page = {
+                name: `page${pageNum}`,
+
+                pageNum: pageNum,
+
+                numItemsOnPage: itemsCurrentPage,
+
+                itemInfo: itemInfoArr
+            };
+
+            let resultItem = "";
+
+            for (let i = 0; i < itemsCurrentPage; i++) {
+
+                resultItem = results.items[i];
+
+                const pageObj = {
+
+                    itemId: resultItem.itemId,
+
+                    itemName: resultItem.itemName,
+
+                    itemMainImg: resultItem.image[0],
+
+                    itemPrice: resultItem.price,
+
+                    itemBrief: resultItem.itemBrief
+                };
+
+                itemInfoArr[i] = (pageObj);
+            };
+
+            return page;
+        }
+
+        //start showItem
+        async function showItem(categoryID, itemID) {
+            let results = await getApiData(api_url + "categories/" + categoryID + "/items/" + itemID);
+            //console.log(results);
+            showHide(true);
+
+            //name
+            document.getElementById("itemViewName").innerHTML = results.itemName;
+
+            //Description
+            document.getElementById("longDes").innerHTML = results.itemFull;
+
+            //images
+            results.image.forEach( (thumbnails, index) => {
+                let img = document.getElementById(`img${index + 1}`);
+                img.src = results.image[index];
+                img.alt = `Image ${index + 1} of ${results.itemName} ${results.itemBrief}`;
+                if(img.id != "img1") {
+                    img.onclick = function() {imageChange(img.id)};
+                };
+            });
+
+            //price
+            document.getElementById("itemViewPrice").innerHTML = results.price;
+
+            //select element
+            createSelectElement(results);
+        }
+        //end showItem
+
+        //creates the selectElement
+        function createSelectElement(results) {
+
+            const selectElementObj = {
+
+                namesOfProperties: ["size", "colors", "quantity"],
+                
+                size: results.size,
+
+                colors: results.colors,
+
+                quantity: [1, 2, 3, 4, 5, 6, 7, 8, 9 ,10]
+            };
+
+            html = ``;
+            selectElementObj.namesOfProperties.forEach( (selectName, index) => {
+                let htmlSegment = `<select required id='${selectName}' name='${selectName}'>
+                        <option selected disabled>--Please Select ${selectName}--</option>`;
+   
+                    selectElementObj[selectName].forEach( (optionName, index) => {
+                        htmlSegment += `<option value='${optionName}'>${optionName}</option>`; 
+
+                    });
+
+                    htmlSegment += `</select>`;
+                    html += htmlSegment;
+            });
+
+            htmlBuilder('form', html);
+        }
+        //end createselectElement
+
+        //will change the viewport to either itemView or tableView
+       function showHide(onOff){
+            if(onOff) {
+                document.querySelector("nav").style.display = "none";
+                document.querySelector("table").style.display = "none";
+                document.querySelector("aside").style.display = "block";
+            }
+            else{ 
+                document.querySelector("nav").style.display = "block";
+                document.querySelector("table").style.display = "table";
+                document.querySelector("aside").style.display = "none";
+            }
+        }
+        //end showHide
+
+        //when clicking an image - this will swap the clickedimage with the main image
+        function imageChange(clickedImg) {
+            let newMainImgSrc = document.getElementById(clickedImg).src;
+            let newMainImgAlt = document.getElementById(clickedImg).alt;
+
+            let newSmallImgSrc = bigImg.src;
+            let newSmallImgAlt = bigImg.alt;
+
+            document.getElementById(clickedImg).src = newSmallImgSrc;
+            document.getElementById(clickedImg).alt = newSmallImgAlt;
+
+            img1.src = newMainImgSrc;
+            img1.alt = newMainImgAlt;
+        }
+        //end imageChange
+
+        function htmlBuilder(query, html) {
+            let itemContainer = document.querySelector(query);
+            itemContainer.innerHTML = html;
+        }
+
+    /*
+
+    
+    When Category Clicked
+    - green "loading" is displayed in middle of table
+    - table updates with items from chosen Category
+    - data includes image, title, description, price
+    
+    Item Clicked
+    - nav is hidden
+    - table is hidden
+    - item is displayed
+    - four photo slideshow (4 thumbnails and one main image. Thumbs clickable to update main image)
+    - title
+    - price
+    - long description
+    - size
+    - color
+    - qty
+    - buy now
+    - close button X
+    
+    Item Closed
+    - itemView is hidden
+    - tableView is displayed as previous state
+    - nav is displayed
+    */
+   processCategories();
+    </script>
+</body>
+</html>
