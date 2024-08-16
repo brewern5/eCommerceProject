@@ -154,9 +154,23 @@
 
         function buildPage(pageObjArray, pages, itemsPerPage, categoryID, pageClicked) {
 
+            console.log(pageObjArray);
+
             let html = "";
 
-            let viewPage = pageObjArray[pageClicked];
+            var viewPage;
+
+            if (pageClicked < 1) {
+
+                viewPage = pageObjArray[pageClicked];
+
+            }
+            else {
+
+                viewPage = pageObjArray;
+
+            }
+            console.log(viewPage);
 
             viewPage.itemInfo.forEach( item => {
 
@@ -184,7 +198,7 @@
             for (let i = 1; i <= pages; i++) {
 
                 let htmlSegment = 
-                    `<button id="page${i}" onclick="buildPage(${{pageObjArray}}, ${pages}, ${itemsPerPage}, ${categoryID}, ${i})">${i}</button>`;
+                    `<button id="page${i}" onclick="buildPage(${pageObjArray[i-1].itemInfo}, ${pages}, ${itemsPerPage}, ${categoryID}, ${i})">${i}</button>`;
 
                 html += htmlSegment;
             }
